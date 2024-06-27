@@ -1,80 +1,79 @@
-const Task = require('../models/task')
+const Task = require('../models/task.models')
 const AsyncWrapper = require('../middleware/AsyncWrapper')
 const {CreateCustomError}=require('../Errrors/CustomErrros')
-
+const {StatusCodes} = require('http-status-codes')
 
 
 //Create task function  to create task
-const CreateTask = async (req,res)=>{
-        const task = await Task.create(req.body)
-        res.status(201).json({msg:'Task Added Successfully!',Task:task})
-    
-   }
+const GetMyTask = async (req,res)=>{
+    const task = await Task.find({createdBy:req.user.UserId})
+    if(!task){
+       return res.status(StatusCodes.NOT_FOUND).json({msg:'No Tasks Found!'})
+    }
+    res.status(StatusCodes.OK).json({msg:'Tasks found sucessfully!',task})
+
+}
+const AddMyTask = async (req,res)=>{
+    req.body.createdBy = req.user.UserId
+    const task = await Task.create(req.body)
+    res.status(StatusCodes.CREATED).json({msg:'Tasks added sucessfully!',task})
+}
 
 
-//Get all tasks from database
-const GetAllTasks  = AsyncWrapper(async (req,res)=>{
-   const tasks = await Task.find({})
-   if(!tasks){
-    return next(CreateCustomError("No task found!",404))
-   }
-     res.status(201).json({msg:'Tasks found Sucessfully!',tasks})
-    
-   })
+//update the task of the user
+const UpdateMyTask = async (req,res)=>{
+    const {
+        body:{name,completed},
+        user:{UserId},
+        params:{id:taskId}
+    } =req
+
+    const task = await Task.findByIdAndUpdate({_id:taskId,createdBy:UserId},req.body,{new:true,runValidators:true})
+    if(!name || !completed){
+     return res.status(StatusCodes.NOT_FOUND).json({msg:'please enter the valid credentials!'})
+    }
+    if(!task){
+        return res.status(StatusCodes.NOT_FOUND).json({msg:'No task found!'}) 
+    }
+    res.status(StatusCodes.CREATED).json({msg:'Tasks updated sucessfully!',task})
+}
 
 
+//Get the single task of the user
+const Singletask = async ( req,res)=>{
+    const {
+        body:{name,completed},
+        user:{UserId},
+        params:{id:taskId}
+    } =req 
 
-//Edit the selected task
-const EditTask = AsyncWrapper(async (req,res,next)=>{
-    const {id:TaskID} = req.params
-        // const task = await Task.findOne({_id:req.params.id})
-        const task = await Task.findOneAndUpdate({_id:TaskID},req.body,{
-            runValidators:true,
-            new:true
-        })
-            if(!task){
-                return next(CreateCustomError("No task with this id",404))
-             }
-          res.status(201).json({msg:'Task edited successfully!',task})
-  
+    const task = await Task.findById({_id:taskId,createdBy:UserId})
+    if(!task){
+     return res.status(StatusCodes.NOT_FOUND).json({msg:'No task found!'})
+    }
+    res.status(StatusCodes.OK).json({msg:'Tasks found sucessfully!',task})
+}
 
-   })
+//Delete a task of the user
+const DeleteMyTask = async ( req,res)=>{
+    const {
+        body:{name,completed},
+        user:{UserId},
+        params:{id:taskId}
+    } =req
 
-
-//Get a single task
-const GetSingleTask = AsyncWrapper(async (req,res)=>{
-        const {id:TaskID} = req.params
-        // const task = await Task.findOne({_id:req.params.id})
-        const task = await Task.findOne({_id:TaskID})
-    
-        if(!task){
-            return next(CreateCustomError("No task with this id",404))
-        }
-        res.status(201).json({msg:'Task found sucessfully!',task})
-    
-     
-   })
+    const task = await Task.findByIdAndDelete({_id:taskId,createdBy:UserId})
+    if(!task){
+     return res.status(StatusCodes.OK).json({msg:'No task found!'})
+    }
+    res.status(StatusCodes.OK).json({msg:'Tasks deleted sucessfully!',task})
+}
 
 
-//Delete the selected task 
-const DeleteTask = AsyncWrapper(async (req,res)=>{
-        const {id:TaskID} = req.params
-        // const task = await Task.findOne({_id:req.params.id})
-        const task = await Task.findOne({_id:TaskID})
-        await task.deleteOne()
-        if(!task){
-            return next(CreateCustomError("No task with this id",404))
-        }
-        res.status(201).json({msg:`Task Deleted sucessfully!`,task})
-   })
-
-
-//exporting all modules.
-module.exports= {
-    GetAllTasks,
-    EditTask,
-    CreateTask,
-    DeleteTask,
-    GetSingleTask
-    
+module.exports ={
+    GetMyTask,
+    AddMyTask,
+    UpdateMyTask,
+    Singletask, 
+    DeleteMyTask
 }
